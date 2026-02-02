@@ -1,0 +1,198 @@
+
+'use client';
+import { useState, useCallback } from 'react';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import FileDropzone from '@/components/file-dropzone';
+import { useToast } from '@/hooks/use-toast';
+import { Download, Loader2, Minimize } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { formatBytes } from '@/lib/utils';
+import { useHistory } from '@/hooks/use-history';
+
+export default function ImageCompressor() {
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [originalSize, setOriginalSize] = useState<number>(0);
+  const [compressedImage, setCompressedImage] = useState<string | null>(null);
+  const [compressedSize, setCompressedSize] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [quality, setQuality] = useState(80);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const { toast } = useToast();
+  const { addToHistory } = useHistory();
+
+  const handleFileDrop = useCallback((files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    if (isLoading) return;
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please upload an image file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setOriginalFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setOriginalImage(result);
+      setOriginalSize(file.size);
+      setCompressedImage(null);
+      setCompressedSize(0);
+      handleCompress(result, quality, file.type);
+    };
+    reader.readAsDataURL(file);
+  }, [isLoading, quality, toast]);
+
+  const handleCompress = async (image: string, qualityValue: number, mimeType: string = 'image/jpeg') => {
+    if (!image) return;
+
+    setIsLoading(true);
+    setCompressedImage(null);
+
+    try {
+      const img = document.createElement('img');
+      img.src = image;
+      await new Promise((resolve, reject) => { 
+          img.onload = resolve;
+          img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get canvas context');
+      ctx.drawImage(img, 0, 0);
+
+      const compressedDataUrl = canvas.toDataURL(mimeType, qualityValue / 100);
+      setCompressedImage(compressedDataUrl);
+
+      const res = await fetch(compressedDataUrl);
+      const blob = await res.blob();
+      const newSize = blob.size;
+      setCompressedSize(newSize);
+
+      addToHistory({
+          tool: 'Image Compressor',
+          data: {
+              compressedImage: compressedDataUrl,
+              originalSize: originalSize || (await fetch(image).then(r=>r.blob()).then(b=>b.size)),
+              compressedSize: newSize,
+              fileType: mimeType,
+          }
+      })
+
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast({
+        title: 'An Error Occurred',
+        description: 'Failed to compress image.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleQualityChange = (value: number[]) => {
+      setQuality(value[0]);
+      if (originalImage && originalFile) {
+        handleCompress(originalImage, value[0], originalFile.type);
+      }
+  }
+  
+  const downloadImage = () => {
+    if (!compressedImage) return;
+    const link = document.createElement("a");
+    link.href = compressedImage;
+    link.download = `compressed-image.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
+  return (
+    <div className="w-full">
+      <Card className="w-full bg-card/50 backdrop-blur-lg border-border/20">
+        <CardHeader>
+          <CardTitle>Image Compressor</CardTitle>
+          <CardDescription>
+            Reduce image file size while maintaining quality.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!originalImage && <FileDropzone onFileDrop={handleFileDrop} variant="green" />}
+
+          {originalImage && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center relative">
+              <div className="flex flex-col items-center gap-2">
+                <h3 className="font-semibold">Original ({formatBytes(originalSize)})</h3>
+                <div className="relative w-full aspect-square rounded-lg overflow-hidden border">
+                  <Image
+                    src={originalImage}
+                    alt="Original"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-center gap-2">
+                <h3 className="font-semibold">Compressed ({formatBytes(compressedSize)})</h3>
+                <div className="relative w-full aspect-square rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                  {isLoading && (
+                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Loader2 className="animate-spin h-8 w-8" />
+                      <span>Compressing...</span>
+                    </div>
+                  )}
+                  {compressedImage && (
+                    <Image
+                      src={compressedImage}
+                      alt="Compressed"
+                      fill
+                      className="object-contain"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {originalImage && (
+              <div className="space-y-4">
+                  <div className="flex justify-between">
+                      <Label htmlFor="quality">Quality: {quality}</Label>
+                      <span className="text-sm text-muted-foreground">~{formatBytes(compressedSize)}</span>
+                  </div>
+                  <Slider
+                      id="quality"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={[quality]}
+                      onValueChange={handleQualityChange}
+                      disabled={isLoading}
+                      variant="green"
+                  />
+              </div>
+          )}
+          <div className="flex justify-center gap-4">
+            {compressedImage && (
+               <Button onClick={downloadImage} disabled={isLoading} variant="green">
+                 <Download className="mr-2 h-4 w-4" />
+                 Download
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

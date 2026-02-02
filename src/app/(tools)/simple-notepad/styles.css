@@ -1,0 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@400;700&family=Bebas+Neue&family=Caveat:wght@400;700&family=EB+Garamond:wght@400;700&family=Inconsolata:wght@400;700&family=Lato:wght@400;700&family=Lobster&family=Lora:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=PT+Serif:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Space+Mono:wght@400;700&display=swap');
+
+[contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    pointer-events: none;
+    display: block; /* For Firefox */
+    color: hsl(var(--muted-foreground));
+}
+.prose h1 { font-size: 2em; }
+.prose h2 { font-size: 1.5em; }
+.prose h3 { font-size: 1.25em; }
+.prose mark {
+    background-color: #ca8a0480;
+    color: inherit;
+}

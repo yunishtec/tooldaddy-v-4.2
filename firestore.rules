@@ -1,0 +1,95 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // --- Schema Validation Helpers ---
+    function isString(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max;
+    }
+    
+    function isBool(value) {
+      return value is bool;
+    }
+    
+    function isTimestamp(value) {
+      return value is timestamp;
+    }
+    
+    function isTimestampOrNull(value) {
+      return value is timestamp || value == null;
+    }
+
+    // --- TodoList Validation ---
+    function validateTodoListOnCreate(data) {
+      return isString(data.name, 1, 100)
+             && data.createdAt == request.time
+             && data.keys().hasOnly(['name', 'createdAt']);
+    }
+
+    function validateTodoListOnUpdate(data, existingData) {
+      return isString(data.name, 1, 100)
+             && data.createdAt == existingData.createdAt // Cannot change creation date
+             && data.keys().hasOnly(['name', 'createdAt']);
+    }
+
+    // --- Task Validation ---
+    function validateTaskOnCreate(data) {
+      let hasRequiredFields = data.keys().hasAll(['text', 'completed', 'createdAt']);
+      let hasNoExtraFields = data.keys().hasOnly(['text', 'completed', 'createdAt', 'dueDate']);
+      
+      return hasRequiredFields && hasNoExtraFields
+             && isString(data.text, 1, 500)
+             && isBool(data.completed) && data.completed == false // Must be created as incomplete
+             && data.createdAt == request.time
+             && isTimestampOrNull(data.get('dueDate', null)); // Check optional dueDate
+    }
+    
+    function validateTaskOnUpdate(data, existingData) {
+      let hasRequiredFields = data.keys().hasAll(['text', 'completed', 'createdAt']);
+      let hasNoExtraFields = data.keys().hasOnly(['text', 'completed', 'createdAt', 'dueDate']);
+      
+      return hasRequiredFields && hasNoExtraFields
+             && isString(data.text, 1, 500)
+             && isBool(data.completed)
+             && data.createdAt == existingData.createdAt // Cannot change creation date
+             && isTimestampOrNull(data.get('dueDate', null));
+    }
+
+    match /users/{userId} {
+      // For this app, we don't write to the user doc, but this rule is good practice.
+      // We will allow read/write only to the owner of the document.
+      allow read, write: if isOwner(userId);
+
+      match /todolists/{listId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && validateTodoListOnCreate(request.resource.data);
+        allow update: if isOwner(userId) && validateTodoListOnUpdate(request.resource.data, resource.data);
+
+        match /tasks/{taskId} {
+          allow read, delete: if isOwner(userId);
+          allow create: if isOwner(userId) && validateTaskOnCreate(request.resource.data);
+          allow update: if isOwner(userId) && validateTaskOnUpdate(request.resource.data, resource.data);
+        }
+      }
+    }
+
+    match /rate-limits/{identifier} {
+        // The server-side action runs as an unauthenticated process.
+        // It needs to be able to read and write the timestamp document for a given identifier.
+        // We deny access to all authenticated clients (i.e., regular app users) to protect the data.
+        allow read, write: if request.auth == null;
+
+        // Deny all other operations for security.
+        allow list, delete: if false;
+    }
+  }
+}

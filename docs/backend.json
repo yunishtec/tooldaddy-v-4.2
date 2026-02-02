@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "TodoList": {
+      "title": "To-Do List",
+      "type": "object",
+      "description": "Represents a single to-do list, which contains tasks.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the to-do list."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the list was created."
+        }
+      },
+      "required": [
+        "name",
+        "createdAt"
+      ]
+    },
+    "Task": {
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a single to-do item within a list.",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The content of the task."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the task is completed or not."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the task was created."
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the task is due."
+        }
+      },
+      "required": [
+        "text",
+        "completed",
+        "createdAt"
+      ]
+    },
+    "RateLimitTracker": {
+      "title": "Rate Limit Tracker",
+      "type": "object",
+      "description": "Tracks request timestamps for a single user/client.",
+      "properties": {
+        "timestamps": {
+          "type": "array",
+          "description": "A list of request timestamps.",
+          "items": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "required": [
+        "timestamps"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Collection to store user profiles.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/todolists/{listId}",
+        "definition": {
+          "entityName": "TodoList",
+          "schema": {
+            "$ref": "#/backend/entities/TodoList"
+          },
+          "description": "Sub-collection to store a user's to-do lists.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The user's unique ID."
+            },
+            {
+              "name": "listId",
+              "description": "The to-do list's unique ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/todolists/{listId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Sub-collection to store tasks for each to-do list.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The user's unique ID."
+            },
+            {
+              "name": "listId",
+              "description": "The to-do list's unique ID."
+            },
+            {
+              "name": "taskId",
+              "description": "The task's unique ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/rate-limits/{identifier}",
+        "definition": {
+          "entityName": "RateLimitTracker",
+          "schema": {
+            "$ref": "#/backend/entities/RateLimitTracker"
+          },
+          "description": "Collection to store request timestamps for each user/client.",
+          "params": [
+            {
+              "name": "identifier",
+              "description": "Unique identifier for the user/client (e.g., IP address + User-Agent)."
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

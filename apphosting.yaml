@@ -1,0 +1,7 @@
+# Settings to manage and configure a Firebase App Hosting backend.
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Auto-scale up to 10 instances for DDoS resilience
+  # Increase this value if you need to handle sudden traffic spikes
+  maxInstances: 10
